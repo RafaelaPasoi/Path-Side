@@ -1,0 +1,24 @@
+---
+title: "Comparison"
+author: "Group"
+date: "2025-07-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+
+```{r loadDeps}
+library(devtools)
+library(nmadb)
+```
+
+## Run Netmeta
+
+
+```{r 1studynetmeta, echo=FALSE}
+
+```
