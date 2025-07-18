@@ -13,14 +13,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r loadDeps}
 library(devtools)
+#install_github('tpapak/nmadb')
 library(nmadb)
+library(netmeta)
 ```
-
+https://www.rdocumentation.org/packages/nmadb/versions/1.2.0/topics/runnetmeta
 ## Run Netmeta
 
 
 ```{r 1studynetmeta, echo=FALSE}
-
-
+#nmas <- getNMADB()
+bid <- 481216
+netb <- readByID(bid)
+#get type and effect
+netb$type
+netb$effect
+netmeta(netb$data, measure="OR")
 
 ```
