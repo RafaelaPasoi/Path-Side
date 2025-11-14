@@ -1,0 +1,1673 @@
+---
+title: "Thesis so far"
+author: "Pasoi Rafaela"
+date: "2025-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Overview of the NMADB datasets
+
+As a first step, I conducted an exploratory analysis of all datasets available in the NMADB database. The aim of this stage was to understand:
+
+a)which types of outcomes are represented (binary, continuous, survival, rate),
+
+b)which effect measures are used (e.g. odds ratio, risk ratio, mean difference),
+
+c)and which datasets are suitable for the subsequent inconsistency analyses using the side-splitting and path-based methods.
+
+This overview is essential for defining the scope of the thesis and for deciding which datasets can be harmonised and included in the main analyses.
+
+Summary of results Overall number of datasets and readability
+
+-Total number of datasets in NMADB: 453
+
+-Successfully read datasets: 296 (\~65%)
+
+-Failed datasets: 157 (\~35%)
+
+The failures are not due to errors in my code, but are related to problems in the underlying data, such as:
+
+-datasets that are not available or return a Bad Request error,
+
+-missing key variables (e.g. event counts or sample sizes),
+
+-structural issues in multi-arm studies that prevent a valid network meta-analysis.
+
+Distribution by outcome type (among the 296 readable datasets)
+
+1)Binary: 195
+
+2)Continuous: 68
+
+3)Survival: 25
+
+4)Rate: 8
+
+Distribution by effect measure (among the 296 readable datasets)
+
+1)Odds Ratio (OR): 123
+
+2)Risk Ratio (RR): 70
+
+3)Mean Difference (MD): 51
+
+4)Hazard Ratio (HR): 23
+
+5)Standardised Mean Difference (SMD): 15
+
+6)Incidence Rate Ratio (IRR): 8
+
+7)Risk Difference (RD): 5
+
+8)Other / miscellaneous: 1
+
+Choice of datasets for the inconsistency analyses
+
+Based on these results and the focus of the thesis, I restrict attention to:
+
+Binary outcomes: all datasets that can be expressed on the odds ratio (OR) scale, even if the original effect measure was different (e.g. RR), using pairwise transformations.
+
+Continuous outcomes: all continuous datasets, which will be transformed to standardised mean differences (SMD) to allow a common effect scale.
+
+Survival and rate outcomes are excluded from the main analyses, as they would require different modelling frameworks and are outside the predefined scope of this project.
+
+Notes on data irregularities
+
+When importing some datasets from NMADB, additional unnamed columns appear (e.g. ...7, ...11, etc.). These columns typically correspond to empty or auxiliary fields in the original database and do not affect the core variables required for the network meta-analysis (such as study identifier, treatment, events, and sample sizes).
+
+For the purposes of this thesis, these extra columns are ignored, and the focus is placed on the cleaned structure needed to compute pairwise comparisons and run the side-splitting and path-based inconsistency assessments.
+
+##Code for the Overview Analysis
+
+```{r overview, results='show', message=TRUE}
+
+# Optional: log all console output to a text file while still printing to the console.
+# Comment this out if you do not want a log file.
+sink("overview_log.txt", split = TRUE)
+
+library(nmadb)
+library(dplyr)
+library(purrr)
+
+# 1. Get full list of datasets from NMADB -------------------------------------
+
+nmas <- getNMADB()
+all_ids <- nmas$Record.ID
+
+# 2. Function to retrieve type, effect and status for a single dataset --------
+
+get_type_effect <- function(bid) {
+  tryCatch(
+    {
+      netb <- readByID(bid)
+      tibble(
+        id            = bid,
+        type          = netb$type,
+        effect        = netb$effect,
+        status        = "OK",
+        error_message = NA_character_
+      )
+    },
+    error = function(e) {
+      tibble(
+        id            = bid,
+        type          = NA_character_,
+        effect        = NA_character_,
+        status        = "FAIL",
+        error_message = conditionMessage(e)
+      )
+    }
+  )
+}
+
+# 3. Apply the function to all IDs --------------------------------------------
+
+overview_types <- map_dfr(all_ids, get_type_effect)
+
+# 4. Overall counts and proportions -------------------------------------------
+
+overall_summary <- overview_types %>%
+  summarise(
+    total_datasets = n(),
+    ok_datasets    = sum(status == "OK"),
+    fail_datasets  = sum(status == "FAIL"),
+    ok_percent     = round(100 * ok_datasets / total_datasets, 1),
+    fail_percent   = round(100 * fail_datasets / total_datasets, 1)
+  )
+
+cat("=== Overall summary of NMADB datasets ===\n")
+print(overall_summary)
+cat("\n")
+
+# 5. Distribution of types and effect measures (OK only) ----------------------
+
+type_distribution <- overview_types %>%
+  filter(status == "OK") %>%
+  count(type, name = "n") %>%
+  arrange(desc(n))
+
+effect_distribution <- overview_types %>%
+  filter(status == "OK") %>%
+  count(effect, name = "n") %>%
+  arrange(desc(n))
+
+cat("=== Distribution of outcome types (OK datasets only) ===\n")
+print(type_distribution)
+cat("\n")
+
+cat("=== Distribution of effect measures (OK datasets only) ===\n")
+print(effect_distribution)
+cat("\n")
+
+# 6. Optional: look at a sample of failed datasets ----------------------------
+
+failed_examples <- overview_types %>%
+  filter(status == "FAIL") %>%
+  slice_head(n = 10)
+
+cat("=== Example of failed datasets (first 10) ===\n")
+print(failed_examples)
+cat("\n")
+
+# Stop logging (if sink was started)
+sink()
+
+
+```
+
+## Data Exploration of the NMADB Records
+
+Purpose of the exploratory step
+
+Before constructing the full dataset for the inconsistency analyses, I performed a small-scale exploratory check on a subset of the NMADB records. The aim was to understand how the datasets are structured, whether they can be loaded without errors, and what variables they contain. This exploratory stage also helped verify that the data format is suitable for subsequent transformation into pairwise comparisons and network meta-analysis objects.
+
+What I attempted to do
+
+-Loaded the full NMADB catalogue (453 datasets in total).
+
+-Selected the first 20 dataset IDs as a pilot subset to evaluate which datasets can be successfully retrieved using readByID().
+
+-Created a function that prints the basic structure of each dataset, including its main columns. The most common variables appearing across datasets were:
+
+1)year (publication year),
+
+2)study (study name or label; same as studlab),
+
+3)id (internal study identifier),
+
+4)t (treatment code),
+
+5)r (number of events for the outcome),
+
+6)n (sample size).
+
+-Checked which IDs were valid—i.e., which datasets could be loaded without errors. Out of the first 20 IDs, 15 loaded successfully, while 5 returned a “Bad Request” error.
+
+-Standardised the column names (e.g., converting to study_id, outcome, effect, n) to achieve a consistent structure across datasets.
+
+-Compiled a summary for each valid dataset, including the number of studies, number of treatments, outcome type, effect measure, and a list of observed columns.
+
+-Saved all valid datasets as separate Excel files and also created a combined summary file (NMAs_overview.xlsx) containing metadata for all valid entries.
+
+Summary of findings
+
+Among the 20 pilot datasets:
+
+a)15 were valid and loaded without issues.
+
+b)5 failed due to Bad Request errors.
+
+The valid datasets covered multiple types and effect measures:
+
+a)Binary outcomes (with OR or RR),
+
+b)Continuous outcomes (with MD),
+
+c)Survival outcomes (with HR).
+
+All valid datasets were successfully exported as individual Excel files, and the corresponding metadata summary was generated without problems.
+
+```{r data-exploration, message=FALSE, warning=FALSE}
+# Load required packages
+suppressPackageStartupMessages({
+  library(nmadb)
+  library(dplyr)
+  library(purrr)
+  library(writexl)
+})
+
+# Main function: data exploration with log and Excel export
+run_nmadb_exploration <- function(max_ids = 20,
+                                  outdir   = "datasets",
+                                  log_file = "data_exploration_log.txt") {
+  
+  # Inner function that does the actual work and prints progress
+  core <- function() {
+    cat("=== NMADB data exploration ===\n")
+    cat("Date-time:", as.character(Sys.time()), "\n\n")
+    
+    # 1. Load the full NMADB catalogue
+    nmas <- getNMADB()
+    cat("Total NMAs in the catalogue:", nrow(nmas), "\n")
+    
+    # Use the first `max_ids` IDs for exploration
+    all_ids  <- nmas$Record.ID
+    some_ids <- head(all_ids, max_ids)
+    cat("IDs selected for testing (first", max_ids, "):\n")
+    print(some_ids)
+    cat("\n")
+    
+    # 2. Test function: check if a dataset can be read and display basic info
+    test_one <- function(bid) {
+      message("=== Trying dataset ID: ", bid, " ===")
+      out <- tryCatch({
+        netb <- readByID(bid)
+        
+        cat("Studies:",   netb$nstudies,
+            "| Treatments:", netb$ntreat,
+            "| Type:",       netb$type,
+            "| Effect:",     netb$effect, "\n")
+        
+        cat("Column names:\n")
+        print(colnames(netb$data))
+        cat("First rows:\n")
+        print(utils::head(netb$data))
+        cat("\n")
+        
+        TRUE
+      }, error = function(e) {
+        message("  -> Error: ", e$message)
+        FALSE
+      })
+      out
+    }
+    
+    # 3. Apply the test to the selected IDs
+    ok_flags  <- purrr::map_lgl(some_ids, test_one)
+    valid_ids <- some_ids[ok_flags]
+    
+    cat("\nSummary of ID testing:\n")
+    cat("  Total IDs tested:", length(some_ids), "\n")
+    cat("  Successful (OK):",  sum(ok_flags), "\n")
+    cat("  Failed:",           sum(!ok_flags), "\n")
+    cat("  Valid IDs:\n")
+    print(valid_ids)
+    cat("\n")
+    
+    # 4. Optional: light column normalization helper (if needed later)
+    normalize_columns <- function(dat) {
+      cn <- tolower(colnames(dat))
+      colnames(dat) <- cn
+      dat %>%
+        rename(
+          study_id = dplyr::any_of(c("study id", "study", "studlab", "trial", "id", "studyid")),
+          outcome  = dplyr::any_of(c("outcome", "outcome:", "endpoint")),
+          effect   = dplyr::any_of(c("effect", "effect size", "yi", "estimate")),
+          n        = dplyr::any_of(c("n", "sample size", "total", "number of patients", "ntotal"))
+        )
+    }
+    
+    # 5. Build a compact overview for each valid dataset
+    summarize_dataset <- function(bid) {
+      out <- tryCatch({
+        netb <- readByID(bid)
+        dat  <- normalize_columns(netb$data)
+        
+        tibble(
+          id     = bid,
+          type   = netb$type,
+          effect = netb$effect,
+          cols   = paste(colnames(netb$data), collapse = ", ")
+        )
+      }, error = function(e) {
+        NULL
+      })
+      out
+    }
+    
+    overview_df <- dplyr::bind_rows(lapply(valid_ids, summarize_dataset))
+    
+    cat("Overview table (first rows):\n")
+    print(utils::head(overview_df, 20))
+    cat("\n")
+    
+    # 6. Save each valid dataset as an Excel file
+    if (!dir.exists(outdir)) dir.create(outdir, recursive = TRUE)
+    
+    save_dataset <- function(bid, outdir = outdir) {
+      out <- tryCatch({
+        netb <- readByID(bid)
+        dat  <- netb$data
+        outfile <- file.path(outdir, paste0("NMA_", bid, ".xlsx"))
+        writexl::write_xlsx(dat, outfile)
+        message("Saved dataset to: ", outfile)
+        outfile
+      }, error = function(e) {
+        message("Error saving ID ", bid, ": ", e$message)
+        NULL
+      })
+      out
+    }
+    
+    exported_files <- lapply(valid_ids, save_dataset)
+    
+    # 7. Save the overview table as Excel
+    overview_path <- file.path(outdir, "NMAs_overview.xlsx")
+    writexl::write_xlsx(overview_df, overview_path)
+    cat("Overview Excel saved to:\n")
+    cat(overview_path, "\n\n")
+    
+    # Return objects to R
+    list(
+      nmas        = nmas,
+      tested_ids  = some_ids,
+      ok_flags    = ok_flags,
+      valid_ids   = valid_ids,
+      overview_df = overview_df,
+      exported    = exported_files,
+      overview_xlsx = overview_path
+    )
+  }
+  
+  # 8. Capture all printed output + messages into a log
+  log_lines <- character(0)
+  result    <- NULL
+  
+  log_lines <- withCallingHandlers(
+    capture.output({
+      result <- core()
+    }, type = "output"),
+    message = function(m) {
+      # Redirect messages into the same stream so they appear in the log
+      cat(conditionMessage(m), "\n")
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) {
+      cat("WARNING:", conditionMessage(w), "\n")
+      invokeRestart("muffleWarning")
+    }
+  )
+  
+  # Write log file
+  writeLines(log_lines, con = log_file)
+  
+  message("Log saved to: ", normalizePath(log_file))
+  message("Datasets and overview saved under: ", normalizePath(outdir))
+  
+  invisible(c(result, list(log_file = log_file)))
+}
+
+# ---- Run the exploration ----
+res <- run_nmadb_exploration(
+  max_ids  = 20,                          # change to all_ids length for full run
+  outdir   = "datasets",                  # folder where Excel files will be saved
+  log_file = "data_exploration_log.txt"   # log file with all printed output
+)
+
+# You can now use:
+# res$valid_ids
+# res$overview_df
+# View(res$overview_df)
+
+
+```
+
+##Binary Outcomes: Transformation to Odds Ratio (OR)
+
+What I attempted to do
+
+-Loaded all dataset IDs from the NMADB database.
+
+-Created a function that selects only datasets with binary outcomes.
+
+-Transformed each binary dataset into pairwise comparisons using the pairwise() function, forcing the effect measure to be Odds Ratio (OR). This ensures that all binary datasets are analysed on a common effect scale.
+
+-Constructed a corresponding netmeta object for each dataset, which will later be used for both the side-splitting and path-based inconsistency analyses.
+
+-Prepared a “clean” binary dataset containing the essential variables required for network meta-analysis: studlab, treat1, treat2, event1, n1, event2, n2, TE, seTE, and dataset_id.
+
+-Saved each clean dataset as a separate Excel file, and exported a summary table (Binary_summary.xlsx) containing metadata for all attempted conversions.
+
+What results I obtained:
+
+An attempt was made to convert all NMADB datasets into binary OR format.
+
+A substantial number of datasets were successfully processed and saved as Binary_OR_XXXX.xlsx, forming a large pool of ready-to-use binary networks.
+
+However, several datasets generated errors, for example:
+
+-Bad Request: dataset not available in the NMADB database.
+
+-object 'r' not found: datasets missing the event column.
+
+-“wrong number of comparisons” or “Problem in multi-arm studies”: inconsistencies caused by incomplete multi-arm information.
+
+-“Comparisons not considered” warnings: some comparisons were dropped because of missing TE or seTE.
+
+-Despite these issues, a large number of valid binary OR datasets were created successfully and are suitable for the inconsistency analyses.
+
+Based on the aims of the thesis and the characteristics of the NMADB data, the following decisions were made:
+
+-Only the successfully converted datasets will be retained for analysis. Datasets that failed during the binary OR conversion (e.g. due to Bad Request errors, missing event data, or structural problems) are excluded, since they cannot contribute valid information to the inconsistency assessment.
+
+-Datasets with multi-arm problems or missing TE/seTE values will not be manually corrected. Although pairwise(..., allstudies = TRUE) could theoretically force the inclusion of incomplete studies, doing so would introduce artificial assumptions about the missing comparisons. To maintain methodological transparency and avoid bias, these datasets are also excluded.
+
+-Warnings such as “Comparisons not considered in network meta-analysis” are not critical and can be ignored as long as the resulting network remains connected and produces a valid netmeta object. These warnings typically arise when a small number of comparisons have missing effects, but they do not invalidate the overall dataset.
+
+-The different types of errors encountered will be documented. This includes counts and examples of Bad Request errors, missing event variables, multi-arm inconsistencies, and other structural issues. Recording these error categories provides a clear audit trail and demonstrates that the final selection of datasets was systematic and justified.
+
+```{r binary_or, results='show', message=TRUE}
+
+library(nmadb)
+library(dplyr)
+library(netmeta)
+library(writexl)
+
+# 1. Get all IDs from NMADB ---------------------------------------------------
+
+nmas <- getNMADB()
+all_ids <- nmas$Record.ID
+
+# 2. Function to create a clean binary OR dataset for a single ID -------------
+
+process_binary <- function(bid, outdir = "binary_datasets") {
+  
+  # Create output folder if it does not exist
+  if (!dir.exists(outdir)) {
+    dir.create(outdir)
+  }
+  
+  # Progress message (this produced the "getting dataset: xxxx" output)
+  print(c("getting dataset:", bid))
+  
+  out <- tryCatch({
+    netb <- readByID(bid)
+    
+    # Keep only binary datasets
+    if (netb$type != "binary") {
+      return(NULL)
+    }
+    
+    dat <- netb$data
+    
+    # Pairwise transformation to Odds Ratios (OR)
+    pw <- pairwise(
+      treat   = t,
+      event   = r,
+      n       = n,
+      studlab = id,
+      data    = dat,
+      sm      = "OR"   # enforce Odds Ratio
+    )
+    
+    # Netmeta object (for later side-splitting / path-based analyses)
+    nm <- netmeta(pw, common = FALSE, random = TRUE)
+    
+    # Prepare a clean dataset
+    clean_dat <- pw %>%
+      dplyr::select(studlab, treat1, treat2, event1, n1, event2, n2, TE, seTE) %>%
+      dplyr::mutate(dataset_id = bid)
+    
+    # Save to Excel
+    outfile <- file.path(outdir, paste0("Binary_OR_", bid, ".xlsx"))
+    write_xlsx(clean_dat, outfile)
+    
+    message("Binary dataset saved: ", outfile)
+    
+    # Return summary info for this dataset
+    list(
+      id       = bid,
+      nstudies = netb$nstudies,
+      ntreat   = netb$ntreat,
+      file     = outfile
+    )
+    
+  }, error = function(e) {
+    message("Error in ", bid, ": ", e$message)
+    NULL
+  })
+  
+  out
+}
+
+# 3. Apply the function to all IDs --------------------------------------------
+
+binary_info <- lapply(all_ids, process_binary)
+
+# 4. Combine information for all successfully processed datasets --------------
+
+binary_summary <- bind_rows(binary_info)
+
+# 5. Save the summary table ---------------------------------------------------
+
+if (!dir.exists("binary_datasets")) {
+  dir.create("binary_datasets")
+}
+write_xlsx(binary_summary, "binary_datasets/Binary_summary.xlsx")
+
+# Show the summary in the knitted document
+binary_summary
+
+```
+
+##Inconsistency analysis: side-splitting and path-based methods TRY NO1 
+
+What I attempted to do
+
+-To illustrate inconsistency assessment in a concrete example, I selected a binary network from the NMADB database (Record ID: 473269) and applied two complementary inconsistency methods:
+
+1.  Pairwise transformation
+
+The dataset was converted into pairwise treatment comparisons using the pairwise() function, forcing the effect measure to odds ratios (OR). This produces a consistent effect scale across all comparisons in the network.
+
+2.  Network meta-analysis
+
+A random-effects network meta-analysis was fitted using netmeta(). This step provides:
+
+-pooled treatment effect estimates,
+
+-direct comparisons,
+
+-the full network structure,
+
+-and the variance–covariance quantities needed for inconsistency diagnostics.
+
+3.  Side-splitting method
+
+The side-splitting approach was applied via the netsplit() function. For every treatment comparison, I extracted:
+
+-the direct effect (TE_dir),
+
+-the indirect effect (TE_indir),
+
+-the inconsistency Q statistic (Q_split = z²),
+
+-the p-value (p_side_split).
+
+The resulting table summarises potential inconsistencies for all comparisons in the network.
+
+4.  Path-based method
+
+I implemented a custom path-based inconsistency function, following the method described in the new code you provided for me.
+
+The procedure:
+
+-constructs a directed graph using the signs of the hat matrix,
+
+-enumerates all simple paths between a pair of treatments,
+
+-identifies independent paths using QR decomposition,
+
+-builds path-level C and V matrices,
+
+-and computes the path-based inconsistency statistic (Q_path), its p-value (p_path), the number of independent paths, and the degrees of freedom.
+
+This allowed me to obtain full path-based inconsistency results for the selected dataset.
+
+5.  Export of results
+
+Both sets of results (side-splitting and path-based) were exported to Excel, stored in separate sheets for easy comparison.
+
+```{r inconsistency_analysis, results='show', message=TRUE}
+
+# Packages
+library(nmadb)
+library(dplyr)
+library(netmeta)
+library(writexl)
+library(igraph)
+library(MASS)
+
+# --- Select dataset ---
+bid <- 473269
+netb <- readByID(bid)
+
+# --- Step 1: Pairwise transformation (always OR for binary data) ---
+pw <- pairwise(
+  treat   = t,
+  event   = r,
+  n       = n,
+  studlab = id,
+  data    = netb$data,
+  sm      = "OR"
+)
+
+# --- Step 2: Network meta-analysis ---
+nm <- netmeta(pw, common = FALSE, random = TRUE)
+
+# --- Step 3: Side-splitting ---
+ns <- netsplit(nm)
+
+side_df <- ns$compare.random |>
+  as.data.frame() |>
+  dplyr::transmute(
+    comparison,
+    Q_split = z^2,
+    p_side_split = p,
+    df_split = 1L
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$direct.random),  comparison, TE_dir  = TE),
+    by = "comparison"
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$indirect.random), comparison, TE_indir = TE),
+    by = "comparison"
+  ) |>
+  dplyr::select(comparison, TE_dir, TE_indir, Q_split, p_side_split, df_split)
+
+# -----------------------------
+# Path-based method as a function for any pair (a, b)
+# -----------------------------
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (common-effect hat per teacher’s code)
+  Hc <- hatmatrix(nm, method = "Davies", type = "full")$common
+  row_lab <- paste0(a, ":", b)
+  
+  # Build directed graph from hat row (teacher function)
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edge_list <- character()
+    for (col_label in colnames(row_vals)) {
+      nodes <- unlist(strsplit(col_label, ":"))
+      if (length(nodes) == 2) {
+        i <- nodes[1]; j <- nodes[2]
+        val <- row_vals[1, col_label]
+        if (val > 0) edge_list <- c(edge_list, i, j)
+        else if (val < 0) edge_list <- c(edge_list, j, i)
+      }
+    }
+    graph(edges = edge_list, directed = TRUE)
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc, row_lab)
+  
+  # If no path exists, return NA row
+  if (!(a %in% V(g)$name) || !(b %in% V(g)$name)) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  
+  # 2) All simple paths a -> b
+  all_paths <- all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) V(g)[p]$name)
+  
+  # 3) Path adjacency matrix (counts of shared edges; diag = path length)
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    # undirected label for matching comparisons regardless of order
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 4) Reduce to independent paths (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx <- qra$pivot[seq_len(qra$rank)]
+  A_red <- A[keep_idx, keep_idx, drop = FALSE]
+  kept_paths <- path_list[keep_idx]
+  Pprime <- length(kept_paths)
+  
+  # 5) Build C and V aligned to comparisons used on kept paths
+  # Network comparisons (standardized "A:B" sorted)
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  
+  # edges actually present on kept paths
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  # keep only edges that are true network comparisons
+  valid_edges <- kept_edges[kept_edges %in% comp_std]
+  
+  # C: rows = kept paths; cols = valid_edges; 1 if edge on path
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  # V diagonal from (seTE.direct.common)^2
+  V_diag_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) {
+    tr <- unlist(strsplit(pair, ":", fixed=TRUE))
+    V_diag_lookup[tr[1], tr[2]]
+  }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V C^T  (+ tiny ridge; symmetric)
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S))/2
+  eps <- 1e-10 * mean(diag(S))
+  S_spd <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S_spd), error = function(e) MASS::ginv(S_spd))
+  
+  # 7) θ_path and θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# --- Step 4: Path-based inconsistency  ---
+
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (Davies, full) 
+  Hc_full <- hatmatrix(nm, method = "Davies", type = "full")$common
+  Hc_mat  <- if (is.list(Hc_full) && "common" %in% names(Hc_full)) Hc_full$common else Hc_full
+  
+  row_lab <- paste0(a, ":", b)
+  if (!(row_lab %in% rownames(Hc_mat))) {
+    row_lab <- paste(sort(c(a, b)), collapse = ":")
+  }
+  
+  
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label, all_trts = NULL) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edges <- list()
+    for (col_label in colnames(row_vals)) {
+      nodes <- strsplit(col_label, ":", fixed = TRUE)[[1]]
+      if (length(nodes) != 2) next
+      val <- row_vals[1, col_label]
+      if (is.na(val) || val == 0) next
+      if (val > 0) edges[[length(edges) + 1]] <- c(nodes[1], nodes[2]) else edges[[length(edges) + 1]] <- c(nodes[2], nodes[1])
+    }
+    if (length(edges) == 0) {
+      g <- igraph::make_empty_graph(directed = TRUE)
+      if (!is.null(all_trts)) g <- igraph::add_vertices(g, nv = length(all_trts), name = all_trts)
+      return(g)
+    }
+    el <- do.call(rbind, edges)
+    g <- igraph::graph_from_edgelist(el, directed = TRUE)
+    if (!is.null(all_trts)) {
+      missing <- setdiff(all_trts, igraph::V(g)$name)
+      if (length(missing) > 0) g <- igraph::add_vertices(g, length(missing), name = missing)
+    }
+    g
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc_mat, row_lab, all_trts = nm$trts)
+  
+ 
+  if (!(a %in% igraph::V(g)$name) || !(b %in% igraph::V(g)$name)) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  all_paths <- igraph::all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) igraph::V(g)[p]$name)
+  
+  # 2) Path-adjacency A 
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 3) Μείωση σε ανεξάρτητα μονοπάτια (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx   <- qra$pivot[seq_len(qra$rank)]
+  kept_paths <- path_list[keep_idx]
+  Pprime     <- length(kept_paths)
+  
+  # 4) Επιλογή συγκρίσεων ειδικά για το (a:b)
+  #    (i) συγκρίσεις του δικτύου, (ii) edges σε kept_paths, (iii) edges με μη μηδενικό hat-weight στο συγκεκριμένο row
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  edge_cols_raw <- names(which(abs(Hc_mat[row_lab, ]) > 1e-12))
+  edge_cols_std <- sapply(strsplit(gsub(":", "-", edge_cols_raw), "-"),
+                          function(x) paste(sort(x), collapse=":"))
+  valid_edges <- Reduce(intersect, list(kept_edges, comp_std, edge_cols_std))
+  if (length(valid_edges) == 0L) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = Pprime, df_path = max(Pprime - 1L, 0L)
+    ))
+  }
+  
+  # 5) C (paths × edges) και V (διαγώνιος από variances των direct)
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  V_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) { tr <- strsplit(pair, ":", fixed = TRUE)[[1]]; V_lookup[tr[1], tr[2]] }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V Cᵗ (συμμετρικοποίηση + ridge για PD) και S⁻¹
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S)) / 2
+  eps <- 1e-10 * mean(diag(S))
+  S   <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S), error = function(e) MASS::ginv(S))
+  
+  # 7) Θ_path και θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q  <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble::tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# Τρέξιμο για όλα τα ζεύγη θεραπειών
+trts  <- nm$trts
+pairs <- t(combn(trts, 2))
+
+path_list <- lapply(seq_len(nrow(pairs)), function(i) {
+  a <- as.character(pairs[i, 1])
+  b <- as.character(pairs[i, 2])
+  tryCatch(
+    path_stats_onepair(nm, a, b),
+    error = function(e) {
+      tibble::tibble(
+        comparison = paste(a, b, sep=":"),
+        Q_path = NA_real_, p_path = NA_real_,
+        n_paths = NA_integer_, df_path = NA_integer_
+      )
+    }
+  )
+})
+
+path_df <- dplyr::bind_rows(path_list)
+
+
+# --- Βήμα 5: Αποθήκευση σε Excel ---
+write_xlsx(
+  list(
+    "side_splitting" = side_df,
+    "path_based"     = path_df
+  ),
+  "test_inconsistency.xlsx"
+)
+
+```
+
+##Inconsistency analysis: side-splitting and path-based methods TRY NO2
+
+```{r inconsistency_analysis, results='show', message=TRUE}
+
+# Πακέτα
+library(nmadb)
+library(dplyr)
+library(netmeta)
+library(writexl)
+library(igraph)
+library(MASS)
+
+# --- Διάλεξε dataset ---
+bid <- 473552
+
+netb <- readByID(bid)
+
+# --- Βήμα 1: Pairwise (πάντα OR για binary) ---
+pw <- pairwise(
+  treat   = t,
+  event   = r,
+  n       = n,
+  studlab = id,
+  data    = netb$data,
+  sm      = "OR"
+)
+
+# --- Βήμα 2: Network meta-analysis ---
+nm <- netmeta(pw, common = FALSE, random = TRUE)
+
+# --- Βήμα 3: Side-splitting ---
+ns <- netsplit(nm)
+
+side_df <- ns$compare.random |>
+  as.data.frame() |>
+  dplyr::transmute(
+    comparison,
+    Q_split = z^2,
+    p_side_split = p,
+    df_split = 1L
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$direct.random),  comparison, TE_dir  = TE),
+    by = "comparison"
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$indirect.random), comparison, TE_indir = TE),
+    by = "comparison"
+  ) |>
+  dplyr::select(comparison, TE_dir, TE_indir, Q_split, p_side_split, df_split)
+
+# -----------------------------
+# path-based method as a function for any pair (a, b)
+# -----------------------------
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (common-effect hat per teacher’s code)
+  Hc <- hatmatrix(nm, method = "Davies", type = "full")$common
+  row_lab <- paste0(a, ":", b)
+  
+  # Build directed graph from hat row (teacher function)
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edge_list <- character()
+    for (col_label in colnames(row_vals)) {
+      nodes <- unlist(strsplit(col_label, ":"))
+      if (length(nodes) == 2) {
+        i <- nodes[1]; j <- nodes[2]
+        val <- row_vals[1, col_label]
+        if (val > 0) edge_list <- c(edge_list, i, j)
+        else if (val < 0) edge_list <- c(edge_list, j, i)
+      }
+    }
+    graph(edges = edge_list, directed = TRUE)
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc, row_lab)
+  
+  # If no path exists, return NA row
+  if (!(a %in% V(g)$name) || !(b %in% V(g)$name)) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  
+  # 2) All simple paths a -> b
+  all_paths <- all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) V(g)[p]$name)
+  
+  # 3) Path adjacency matrix (counts of shared edges; diag = path length)
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    # undirected label for matching comparisons regardless of order
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 4) Reduce to independent paths (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx <- qra$pivot[seq_len(qra$rank)]
+  A_red <- A[keep_idx, keep_idx, drop = FALSE]
+  kept_paths <- path_list[keep_idx]
+  Pprime <- length(kept_paths)
+  
+  # 5) Build C and V aligned to comparisons used on kept paths
+  # Network comparisons (standardized "A:B" sorted)
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  
+  # edges actually present on kept paths
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  # keep only edges that are true network comparisons
+  valid_edges <- kept_edges[kept_edges %in% comp_std]
+  
+  # C: rows = kept paths; cols = valid_edges; 1 if edge on path
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  # V diagonal from (seTE.direct.common)^2
+  V_diag_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) {
+    tr <- unlist(strsplit(pair, ":", fixed=TRUE))
+    V_diag_lookup[tr[1], tr[2]]
+  }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V C^T  (+ tiny ridge; symmetric)
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S))/2
+  eps <- 1e-10 * mean(diag(S))
+  S_spd <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S_spd), error = function(e) MASS::ginv(S_spd))
+  
+  # 7) θ_path and θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# --- Βήμα 4: Path-based inconsistency (μέθοδος δασκάλου, διορθωμένο) ---
+
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (Davies, full) και επιλογή σωστού πίνακα
+  Hc_full <- hatmatrix(nm, method = "Davies", type = "full")$common
+  Hc_mat  <- if (is.list(Hc_full) && "common" %in% names(Hc_full)) Hc_full$common else Hc_full
+  
+  row_lab <- paste0(a, ":", b)
+  if (!(row_lab %in% rownames(Hc_mat))) {
+    # ασφάλεια: τυποποιημένη μορφή "A:B" (αλφαβητική)
+    row_lab <- paste(sort(c(a, b)), collapse = ":")
+  }
+  
+  # Helper: γράφημα από τη γραμμή του hat matrix (μοντέρνο igraph API)
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label, all_trts = NULL) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edges <- list()
+    for (col_label in colnames(row_vals)) {
+      nodes <- strsplit(col_label, ":", fixed = TRUE)[[1]]
+      if (length(nodes) != 2) next
+      val <- row_vals[1, col_label]
+      if (is.na(val) || val == 0) next
+      if (val > 0) edges[[length(edges) + 1]] <- c(nodes[1], nodes[2]) else edges[[length(edges) + 1]] <- c(nodes[2], nodes[1])
+    }
+    if (length(edges) == 0) {
+      g <- igraph::make_empty_graph(directed = TRUE)
+      if (!is.null(all_trts)) g <- igraph::add_vertices(g, nv = length(all_trts), name = all_trts)
+      return(g)
+    }
+    el <- do.call(rbind, edges)
+    g <- igraph::graph_from_edgelist(el, directed = TRUE)
+    if (!is.null(all_trts)) {
+      missing <- setdiff(all_trts, igraph::V(g)$name)
+      if (length(missing) > 0) g <- igraph::add_vertices(g, length(missing), name = missing)
+    }
+    g
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc_mat, row_lab, all_trts = nm$trts)
+  
+  # Αν δεν υπάρχει μονοπάτι a->b, γύρνα NA
+  if (!(a %in% igraph::V(g)$name) || !(b %in% igraph::V(g)$name)) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  all_paths <- igraph::all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) igraph::V(g)[p]$name)
+  
+  # 2) Path-adjacency A (διαγώνιος = μήκος μονοπατιού)
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 3) Μείωση σε ανεξάρτητα μονοπάτια (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx   <- qra$pivot[seq_len(qra$rank)]
+  kept_paths <- path_list[keep_idx]
+  Pprime     <- length(kept_paths)
+  
+  # 4) Επιλογή συγκρίσεων ειδικά για το (a:b)
+  #    (i) συγκρίσεις του δικτύου, (ii) edges σε kept_paths, (iii) edges με μη μηδενικό hat-weight στο συγκεκριμένο row
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  edge_cols_raw <- names(which(abs(Hc_mat[row_lab, ]) > 1e-12))
+  edge_cols_std <- sapply(strsplit(gsub(":", "-", edge_cols_raw), "-"),
+                          function(x) paste(sort(x), collapse=":"))
+  valid_edges <- Reduce(intersect, list(kept_edges, comp_std, edge_cols_std))
+  if (length(valid_edges) == 0L) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = Pprime, df_path = max(Pprime - 1L, 0L)
+    ))
+  }
+  
+  # 5) C (paths × edges) και V (διαγώνιος από variances των direct)
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  V_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) { tr <- strsplit(pair, ":", fixed = TRUE)[[1]]; V_lookup[tr[1], tr[2]] }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V Cᵗ (συμμετρικοποίηση + ridge για PD) και S⁻¹
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S)) / 2
+  eps <- 1e-10 * mean(diag(S))
+  S   <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S), error = function(e) MASS::ginv(S))
+  
+  # 7) Θ_path και θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q  <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble::tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# Τρέξιμο για όλα τα ζεύγη θεραπειών
+trts  <- nm$trts
+pairs <- t(combn(trts, 2))
+
+path_list <- lapply(seq_len(nrow(pairs)), function(i) {
+  a <- as.character(pairs[i, 1])
+  b <- as.character(pairs[i, 2])
+  tryCatch(
+    path_stats_onepair(nm, a, b),
+    error = function(e) {
+      tibble::tibble(
+        comparison = paste(a, b, sep=":"),
+        Q_path = NA_real_, p_path = NA_real_,
+        n_paths = NA_integer_, df_path = NA_integer_
+      )
+    }
+  )
+})
+
+path_df <- dplyr::bind_rows(path_list)
+
+
+# --- Βήμα 5: Αποθήκευση σε Excel ---
+write_xlsx(
+  list(
+    "side_splitting" = side_df,
+    "path_based"     = path_df
+  ),
+  "test_inconsistency2.xlsx"
+)
+
+```
+
+##Inconsistency analysis: side-splitting and path-based methods TRY NO3
+
+```{r inconsistency_analysis, results='show', message=TRUE}
+
+# Πακέτα
+library(nmadb)
+library(dplyr)
+library(netmeta)
+library(writexl)
+library(igraph)
+library(MASS)
+
+# --- Διάλεξε dataset ---
+bid <- 474842
+
+
+netb <- readByID(bid)
+
+# --- Βήμα 1: Pairwise (πάντα OR για binary) ---
+pw <- pairwise(
+  treat   = t,
+  event   = r,
+  n       = n,
+  studlab = id,
+  data    = netb$data,
+  sm      = "OR"
+)
+
+# --- Βήμα 2: Network meta-analysis ---
+nm <- netmeta(pw, common = FALSE, random = TRUE)
+
+# --- Βήμα 3: Side-splitting ---
+ns <- netsplit(nm)
+
+side_df <- ns$compare.random |>
+  as.data.frame() |>
+  dplyr::transmute(
+    comparison,
+    Q_split = z^2,
+    p_side_split = p,
+    df_split = 1L
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$direct.random),  comparison, TE_dir  = TE),
+    by = "comparison"
+  ) |>
+  dplyr::left_join(
+    dplyr::select(as.data.frame(ns$indirect.random), comparison, TE_indir = TE),
+    by = "comparison"
+  ) |>
+  dplyr::select(comparison, TE_dir, TE_indir, Q_split, p_side_split, df_split)
+
+# -----------------------------
+# path-based method as a function for any pair (a, b)
+# -----------------------------
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (common-effect hat per teacher’s code)
+  Hc <- hatmatrix(nm, method = "Davies", type = "full")$common
+  row_lab <- paste0(a, ":", b)
+  
+  # Build directed graph from hat row (teacher function)
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edge_list <- character()
+    for (col_label in colnames(row_vals)) {
+      nodes <- unlist(strsplit(col_label, ":"))
+      if (length(nodes) == 2) {
+        i <- nodes[1]; j <- nodes[2]
+        val <- row_vals[1, col_label]
+        if (val > 0) edge_list <- c(edge_list, i, j)
+        else if (val < 0) edge_list <- c(edge_list, j, i)
+      }
+    }
+    graph(edges = edge_list, directed = TRUE)
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc, row_lab)
+  
+  # If no path exists, return NA row
+  if (!(a %in% V(g)$name) || !(b %in% V(g)$name)) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  
+  # 2) All simple paths a -> b
+  all_paths <- all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) V(g)[p]$name)
+  
+  # 3) Path adjacency matrix (counts of shared edges; diag = path length)
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    # undirected label for matching comparisons regardless of order
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 4) Reduce to independent paths (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx <- qra$pivot[seq_len(qra$rank)]
+  A_red <- A[keep_idx, keep_idx, drop = FALSE]
+  kept_paths <- path_list[keep_idx]
+  Pprime <- length(kept_paths)
+  
+  # 5) Build C and V aligned to comparisons used on kept paths
+  # Network comparisons (standardized "A:B" sorted)
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  
+  # edges actually present on kept paths
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  # keep only edges that are true network comparisons
+  valid_edges <- kept_edges[kept_edges %in% comp_std]
+  
+  # C: rows = kept paths; cols = valid_edges; 1 if edge on path
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  # V diagonal from (seTE.direct.common)^2
+  V_diag_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) {
+    tr <- unlist(strsplit(pair, ":", fixed=TRUE))
+    V_diag_lookup[tr[1], tr[2]]
+  }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V C^T  (+ tiny ridge; symmetric)
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S))/2
+  eps <- 1e-10 * mean(diag(S))
+  S_spd <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S_spd), error = function(e) MASS::ginv(S_spd))
+  
+  # 7) θ_path and θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# --- Βήμα 4: Path-based inconsistency (μέθοδος δασκάλου, διορθωμένο) ---
+
+path_stats_onepair <- function(nm, a, b, tol = 1e-8) {
+  # 1) Hat matrix (Davies, full) και επιλογή σωστού πίνακα
+  Hc_full <- hatmatrix(nm, method = "Davies", type = "full")$common
+  Hc_mat  <- if (is.list(Hc_full) && "common" %in% names(Hc_full)) Hc_full$common else Hc_full
+  
+  row_lab <- paste0(a, ":", b)
+  if (!(row_lab %in% rownames(Hc_mat))) {
+    # ασφάλεια: τυποποιημένη μορφή "A:B" (αλφαβητική)
+    row_lab <- paste(sort(c(a, b)), collapse = ":")
+  }
+  
+  # Helper: γράφημα από τη γραμμή του hat matrix (μοντέρνο igraph API)
+  build_directed_network_from_hat_row <- function(hat_matrix, row_label, all_trts = NULL) {
+    row_vals <- hat_matrix[row_label, , drop = FALSE]
+    edges <- list()
+    for (col_label in colnames(row_vals)) {
+      nodes <- strsplit(col_label, ":", fixed = TRUE)[[1]]
+      if (length(nodes) != 2) next
+      val <- row_vals[1, col_label]
+      if (is.na(val) || val == 0) next
+      if (val > 0) edges[[length(edges) + 1]] <- c(nodes[1], nodes[2]) else edges[[length(edges) + 1]] <- c(nodes[2], nodes[1])
+    }
+    if (length(edges) == 0) {
+      g <- igraph::make_empty_graph(directed = TRUE)
+      if (!is.null(all_trts)) g <- igraph::add_vertices(g, nv = length(all_trts), name = all_trts)
+      return(g)
+    }
+    el <- do.call(rbind, edges)
+    g <- igraph::graph_from_edgelist(el, directed = TRUE)
+    if (!is.null(all_trts)) {
+      missing <- setdiff(all_trts, igraph::V(g)$name)
+      if (length(missing) > 0) g <- igraph::add_vertices(g, length(missing), name = missing)
+    }
+    g
+  }
+  
+  g <- build_directed_network_from_hat_row(Hc_mat, row_lab, all_trts = nm$trts)
+  
+  # Αν δεν υπάρχει μονοπάτι a->b, γύρνα NA
+  if (!(a %in% igraph::V(g)$name) || !(b %in% igraph::V(g)$name)) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  all_paths <- igraph::all_simple_paths(g, from = a, to = b)
+  if (length(all_paths) == 0) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = 0L, df_path = NA_integer_
+    ))
+  }
+  path_list <- lapply(all_paths, function(p) igraph::V(g)[p]$name)
+  
+  # 2) Path-adjacency A (διαγώνιος = μήκος μονοπατιού)
+  edgeify <- function(path_nodes) {
+    nodes <- as.vector(path_nodes)
+    if (length(nodes) < 2) return(character(0))
+    mapply(function(x,y) paste(sort(c(x,y)), collapse=":"), nodes[-length(nodes)], nodes[-1])
+  }
+  edge_sets <- lapply(path_list, edgeify)
+  nP <- length(edge_sets)
+  A <- matrix(0, nP, nP)
+  diag(A) <- sapply(edge_sets, length)
+  for (i in seq_len(nP)) for (j in seq_len(nP)) if (i != j)
+    A[i, j] <- length(intersect(edge_sets[[i]], edge_sets[[j]]))
+  rownames(A) <- colnames(A) <- paste0("Path", seq_len(nP))
+  
+  # 3) Μείωση σε ανεξάρτητα μονοπάτια (QR)
+  qra <- qr(A, tol = tol)
+  keep_idx   <- qra$pivot[seq_len(qra$rank)]
+  kept_paths <- path_list[keep_idx]
+  Pprime     <- length(kept_paths)
+  
+  # 4) Επιλογή συγκρίσεων ειδικά για το (a:b)
+  #    (i) συγκρίσεις του δικτύου, (ii) edges σε kept_paths, (iii) edges με μη μηδενικό hat-weight στο συγκεκριμένο row
+  comp_all <- nm$comparisons
+  comp_std <- sapply(strsplit(gsub(":", "-", comp_all), "-"),
+                     function(x) paste(sort(x), collapse=":"))
+  kept_edges <- sort(unique(unlist(lapply(kept_paths, edgeify))))
+  edge_cols_raw <- names(which(abs(Hc_mat[row_lab, ]) > 1e-12))
+  edge_cols_std <- sapply(strsplit(gsub(":", "-", edge_cols_raw), "-"),
+                          function(x) paste(sort(x), collapse=":"))
+  valid_edges <- Reduce(intersect, list(kept_edges, comp_std, edge_cols_std))
+  if (length(valid_edges) == 0L) {
+    return(tibble::tibble(
+      comparison = paste(a, b, sep=":"),
+      Q_path = NA_real_, p_path = NA_real_,
+      n_paths = Pprime, df_path = max(Pprime - 1L, 0L)
+    ))
+  }
+  
+  # 5) C (paths × edges) και V (διαγώνιος από variances των direct)
+  C <- matrix(0, nrow = Pprime, ncol = length(valid_edges))
+  rownames(C) <- paste0("Path", seq_len(Pprime))
+  colnames(C) <- valid_edges
+  for (i in seq_len(Pprime)) {
+    pe <- edgeify(kept_paths[[i]])
+    C[i, colnames(C) %in% pe] <- 1
+  }
+  
+  V_lookup <- (nm$seTE.direct.common)^2
+  getV <- function(pair) { tr <- strsplit(pair, ":", fixed = TRUE)[[1]]; V_lookup[tr[1], tr[2]] }
+  V <- diag(sapply(valid_edges, getV))
+  rownames(V) <- colnames(V) <- valid_edges
+  
+  # 6) S = C V Cᵗ (συμμετρικοποίηση + ridge για PD) και S⁻¹
+  S <- C %*% V %*% t(C)
+  if (!isSymmetric(S)) S <- (S + t(S)) / 2
+  eps <- 1e-10 * mean(diag(S))
+  S   <- S + diag(eps, nrow(S))
+  S_inv <- tryCatch(solve(S), error = function(e) MASS::ginv(S))
+  
+  # 7) Θ_path και θ̂_ab
+  TEdir <- nm$TE.direct.common
+  theta_path <- vapply(kept_paths, function(nodes) {
+    nodes <- as.vector(nodes)
+    if (length(nodes) < 2) return(0)
+    sum(mapply(function(x,y) TEdir[x,y], nodes[-length(nodes)], nodes[-1]), na.rm = TRUE)
+  }, numeric(1))
+  theta_ab <- nm$TE.common[a, b]
+  
+  # 8) Q, df, p
+  theta_diff <- theta_path - theta_ab
+  Q  <- as.numeric(t(theta_diff) %*% S_inv %*% theta_diff)
+  df <- length(theta_path) - 1L
+  p  <- 1 - pchisq(Q, df = df)
+  
+  tibble::tibble(
+    comparison = paste(a, b, sep=":"),
+    Q_path = Q,
+    p_path = p,
+    n_paths = length(theta_path),
+    df_path = df
+  )
+}
+
+# Τρέξιμο για όλα τα ζεύγη θεραπειών
+trts  <- nm$trts
+pairs <- t(combn(trts, 2))
+
+path_list <- lapply(seq_len(nrow(pairs)), function(i) {
+  a <- as.character(pairs[i, 1])
+  b <- as.character(pairs[i, 2])
+  tryCatch(
+    path_stats_onepair(nm, a, b),
+    error = function(e) {
+      tibble::tibble(
+        comparison = paste(a, b, sep=":"),
+        Q_path = NA_real_, p_path = NA_real_,
+        n_paths = NA_integer_, df_path = NA_integer_
+      )
+    }
+  )
+})
+
+path_df <- dplyr::bind_rows(path_list)
+
+
+# --- Βήμα 5: Αποθήκευση σε Excel ---
+write_xlsx(
+  list(
+    "side_splitting" = side_df,
+    "path_based"     = path_df
+  ),
+  "test_inconsistency3.xlsx"
+)
+
+message("Έτοιμο! Δες το αρχείο test_inconsistency3.xlsx")
+```

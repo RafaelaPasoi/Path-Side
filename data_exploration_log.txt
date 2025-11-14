@@ -1,0 +1,424 @@
+[1] 453 407
+  Record.ID First.Author       Year Country..choice.Afghanistan. Country..choice.Aland.Islands.
+1    473248         Naci 2013-01-01                    Unchecked                      Unchecked
+2    473269          Lin 2014-01-01                    Unchecked                      Unchecked
+3    473552     Valentin 2011-01-01                    Unchecked                      Unchecked
+4    474842  Castellucci 2014-01-01                    Unchecked                      Unchecked
+5    476033       Jansen 2009-01-01                    Unchecked                      Unchecked
+6    476343      Edwards 2015-01-01                    Unchecked                      Unchecked
+  Country..choice.Albania. Country..choice.Algeria. Country..choice.American.Samoa.
+1                Unchecked                Unchecked                       Unchecked
+2                Unchecked                Unchecked                       Unchecked
+3                Unchecked                Unchecked                       Unchecked
+4                Unchecked                Unchecked                       Unchecked
+5                Unchecked                Unchecked                       Unchecked
+6                Unchecked                Unchecked                       Unchecked
+  Country..choice.Andorra. Country..choice.Angola.
+1                Unchecked               Unchecked
+2                Unchecked               Unchecked
+3                Unchecked               Unchecked
+4                Unchecked               Unchecked
+5                Unchecked               Unchecked
+6                Unchecked               Unchecked
+[1] "getting dataset:" "473248"          
+[1] "getting dataset:" "473269"          
+Studies: | Treatments: | Type: binary | Effect: RR 
+[1] "year"  "study" "id"    "t"     "r"     "n"    
+  year   study id t   r   n
+1 2002 Fellman  1 1  90 188
+2   NA    <NA>  1 5 111 179
+3 2001 Netland  2 3  96 193
+4   NA    <NA>  2 5 108 197
+5 2012   Chabi  3 1 173 312
+6   NA    <NA>  3 4 178 298
+[1] "getting dataset:" "473552"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"     "study"    "id"       "t"        "r"        "n"        "...7"     "...8"    
+ [9] "Benefit"  "Outcome:" "ACR70"    "...12"   
+  year           study id t   r   n ...7 ...8 Benefit  Outcome: ACR70                 ...12
+1 2007 Nishimoto, 2007  1 9  52 158   NA   NA      NA      <NA>    NA                  <NA>
+2   NA            <NA>  1 1   9 148   NA   NA      NA      <NA>    NA                  <NA>
+3 2008    Smolen, 2008  2 9  71 419   NA   NA      NA Treatment    NA                  <NA>
+4   NA            <NA>  2 1   4 204   NA   NA      NA      <NA>     1 Placebo/Standard Care
+5 2008  Genovese, 2008  3 9 169 805   NA   NA      NA      <NA>     2             abatacept
+6   NA            <NA>  3 1  12 415   NA   NA      NA      <NA>     3            adalimumab
+[1] "getting dataset:" "474842"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"                                       "study"                                     
+ [3] "id"                                         "t"                                         
+ [5] "n"                                          "r"                                         
+ [7] "...7"                                       "Harmful"                                   
+ [9] "Outcome:"                                   "rates of recurrent venous  thromboembolism"
+[11] "...11"                                      "Comment"                                   
+  year                         study id t   n  r ...7 Harmful Outcome:
+1 1991 Collaborative European Study,  1 1  81  2   NA      NA       NA
+2   NA Collaborative European Study,  1 2  85  3   NA      NA       NA
+3 1992                    Hull et al  2 1 219 15   NA      NA       NA
+4   NA                    Hull et al  2 2 213  6   NA      NA       NA
+5 1992                Lopaciuk et al  3 1  75  3   NA      NA       NA
+6   NA                Lopaciuk et al  3 2  74  0   NA      NA       NA
+  rates of recurrent venous  thromboembolism ...11                             Comment
+1                                       <NA>    NA                                <NA>
+2                                 Treatments     1          UFH + vitamin K antagonist
+3                                       <NA>     2         LMWH + vitamin K antagonist
+4                                       <NA>     3                          LMWH alone
+5                                       <NA>     4 Fondaparinux + vitamin K antagonist
+6                                       <NA>     5                         Rivaroxaban
+[1] "getting dataset:" "476033"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"      "study"     "id"        "t"         "r"         "n"         "...7"      "Harm"     
+ [9] "Outcome:"  "fractures" "...11"    
+  year                 study id t   r    n ...7 Harm   Outcome: fractures           ...11
+1 2007    Black et al., 2007  1 1 310 2853   NA   NA Treatments         1         placbeo
+2   NA                  <NA>  1 2  92 2822   NA   NA       <NA>         2 zoledronic acid
+3 2005  Chesnut et al., 2005  2 1  73  975   NA   NA       <NA>         3     ibandronate
+4   NA                  <NA>  2 3  37  977   NA   NA       <NA>         4     alendronate
+5 1995 Liberman et al., 1995  3 1  22  355   NA   NA       <NA>         5    risideronate
+6   NA                  <NA>  3 4  17  526   NA   NA       <NA>        NA            <NA>
+[1] "getting dataset:" "476343"          
+Studies: | Treatments: | Type: survival | Effect: HR 
+ [1] "Study year"                                                                  
+ [2] "Study name"                                                                  
+ [3] "id"                                                                          
+ [4] "t1"                                                                          
+ [5] "t2"                                                                          
+ [6] "yHR"                                                                         
+ [7] "effect"                                                                      
+ [8] "CILhr"                                                                       
+ [9] "CIHhr"                                                                       
+[10] "CIL"                                                                         
+[11] "CIH"                                                                         
+[12] "seHR"                                                                        
+[13] "se"                                                                          
+[14] "Beneficial"                                                                  
+[15] "Outcome: Overall survival in the platinum-sensitive recurrent ovarian cancer"
+[16] "...16"                                                                       
+[17] "...17"                                                                       
+[18] "...18"                                                                       
+  Study year           Study name id t1 t2  yHR      effect CILhr CIHhr        CIL         CIH
+1       2008              Alberts  1  1  2 0.70 -0.35667494  0.40  1.21 -0.9162907  0.19062036
+2       2010           Bafaloukos  2  1  3 1.15  0.13976194  0.78  1.66 -0.2484614  0.50681760
+3       2003 ICON4/AGO-OVAR 2.261  3  3  4 0.82 -0.19845094  0.69  0.97 -0.3710637 -0.03045921
+4       2012              CALYPSO  4  1  3 0.99 -0.01005034  0.85  1.16 -0.1625189  0.14842001
+5       2005      Gonzalez-Martin  5  3  4 0.31 -1.17118298  0.14  0.68 -1.9661129 -0.38566248
+6       2006            Pfisterer  6  5  4 0.96 -0.04082199  0.75  1.23 -0.2876821  0.20701417
+        seHR         se Beneficial
+1 0.20663265 0.28237528         NA
+2 0.22448980 0.19267320         NA
+3 0.07142857 0.08688890         NA
+4 0.07908163 0.07932116         NA
+5 0.13775510 0.40317612         NA
+6 0.12244898 0.12619802         NA
+  Outcome: Overall survival in the platinum-sensitive recurrent ovarian cancer      ...16 ...17
+1                                                                           NA       <NA>    NA
+2                                                                           NA Treatments     1
+3                                                                           NA       <NA>     2
+4                                                                           NA       <NA>     3
+5                                                                           NA       <NA>     4
+6                                                                           NA       <NA>     5
+                            ...18
+1                            <NA>
+2              PLDH + carboplatin
+3 Carboplatin alone every 4 weeks
+4        Paclitaxel + carboplatin
+5     Carboplatin alone every day
+6    Gemcitabine plus carboplatin
+[1] "getting dataset:" "479531"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+[1] "year"  "study" "id"    "t"     "r"     "n"    
+  year                    study id  t   r   n
+1 2008   089 Study (Malan 2008)  1  1  71  95
+2   NA   089 Study (Malan 2008)  1  2  73 105
+3 2006 934 Study (Gallant 2006)  2 10 173 254
+4   NA 934 Study (Gallant 2006)  2 12 196 255
+5 2008       ALERT (Smith 2008)  4  4  44  53
+6   NA       ALERT (Smith 2008)  4 15  40  53
+[1] "getting dataset:" "479574"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"                     "study"                    "id"                      
+ [4] "t"                        "r"                        "n"                       
+ [7] "...7"                     "Harm"                     "Outcome:"                
+[10] "target revascularization" "...11"                   
+  year     study id t  r   n ...7 Harm   Outcome: target revascularization
+1    ?    ACTION  1 2 49 241   NA   NA Treatments                        1
+2 <NA>      <NA>  1 1 11 119   NA   NA       <NA>                        2
+3 2003  FUTURE I  2 3  1  27   NA   NA       <NA>                        3
+4 <NA>      <NA>  2 1  1  15   NA   NA       <NA>                        4
+5 2004 FUTURE II  3 3  1  21   NA   NA       <NA>                        5
+6 <NA>      <NA>  3 1  6  43   NA   NA       <NA>                        6
+                                ...11
+1                                 BMS
+2           Actinomycin-eluting stent
+3  Polymeric everolimus-eluting stent
+4         Mycophenolate-eluting stent
+5 Apolymeric paclitaxel-eluting stent
+6  Polymeric paclitaxel-eluting stent
+[1] "getting dataset:" "479585"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"                           "study"                         
+ [3] "id"                             "t"                             
+ [5] "n"                              "r"                             
+ [7] "...7"                           "Harmful"                       
+ [9] "Outcome:"                       "Number of total adverse events"
+[11] "...11"                          "Comment"                       
+   year    study id t   n   r ...7    Harmful Outcome:         Number of total adverse events ...11
+1  2005 Genovese  1 1 133  95   NA       <NA>       NA                                   <NA>    NA
+2  <NA> Genovese  1 2 258 205   NA Treatments        1 Control: any other therapy or placebo.    NA
+3  2006   Kremer  2 1 219 184   NA       <NA>        2                              Abatacept    NA
+4  <NA>   Kremer  2 2 433 378   NA       <NA>        3                             Adalimumab    NA
+5 2008a   Schiff  3 1 110  92   NA       <NA>        4                               Anakinra    NA
+6  <NA>   Schiff  3 2 156 129   NA       <NA>        5                           Certolizumab    NA
+  Comment
+1      NA
+2      NA
+3      NA
+4      NA
+5      NA
+6      NA
+[1] "getting dataset:" "479586"          
+[1] "getting dataset:" "479600"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"       "study"      "id"         "t"          "n"          "r"          "...7"      
+ [8] "Beneficial" "Outcome:"   "ACR 50"    
+   year  study id t   n   r ...7 Beneficial Outcome:     ACR 50
+1  2006 Kremer  1 1 424 169   NA       <NA>       NA       <NA>
+2  <NA> Kremer  1 2 214  36   NA Treatments        1    Placebo
+3  2003 Kremer  2 1 119  14   NA       <NA>        2  Abatacept
+4  <NA> Kremer  2 2 115  42   NA       <NA>        3 Infliximab
+5 2008a Schiff  3 1 156  63   NA       <NA>        4 Adalimumab
+6  <NA> Schiff  3 2 110  22   NA       <NA>        5   Anakinra
+[1] "getting dataset:" "479603"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "study year"                                           
+ [2] "study name"                                           
+ [3] "id"                                                   
+ [4] "t"                                                    
+ [5] "r"                                                    
+ [6] "n"                                                    
+ [7] "...7"                                                 
+ [8] "BENEFICIAL"                                           
+ [9] "Outcome: >50% reduction in monthly migraine frequency"
+[10] "...10"                                                
+  study year study name id t  r   n ...7 BENEFICIAL
+1       1976    Diamond  1 1 17  83   NA       <NA>
+2       <NA>       <NA>  1 2 34  83   NA Treatments
+3       2009     Dodick  2 3 99 178   NA       <NA>
+4       <NA>       <NA>  2 4 78 169   NA       <NA>
+5       2007 de Tommaso  3 3  8  13   NA       <NA>
+6       <NA>       <NA>  3 5  8  15   NA       <NA>
+  Outcome: >50% reduction in monthly migraine frequency         ...10
+1                                                    NA          <NA>
+2                                                     1       Placebo
+3                                                     2   Propranolol
+4                                                     3    Topiramate
+5                                                     4 Amitriptyline
+6                                                     5 Levetiracetam
+[1] "getting dataset:" "479615"          
+[1] "getting dataset:" "479622"          
+Studies: | Treatments: | Type: continuous | Effect: MD 
+ [1] "Study year"                                                                   
+ [2] "Study name"                                                                   
+ [3] "id"                                                                           
+ [4] "t"                                                                            
+ [5] "y"                                                                            
+ [6] "sd"                                                                           
+ [7] "n"                                                                            
+ [8] "...8"                                                                         
+ [9] "Harmful (the less the score the better it is, the less pain the patients had)"
+[10] "...10"                                                                        
+[11] "Outcome: change in total symptom score in chronic prostatitis (NIH-CPSI)"     
+  Study year    Study name id t    y   sd   n ...8
+1       2004 Alexander [4]  1 2 20.2 12.2  45   NA
+2         NA          <NA>  1 3 18.0 13.2  42   NA
+3         NA          <NA>  1 4 21.3 11.9  42   NA
+4         NA          <NA>  1 1 21.6  9.8  45   NA
+5       2008    Nickel [5]  2 2 16.7 14.9 138   NA
+6         NA          <NA>  2 1 18.6 14.1 134   NA
+  Harmful (the less the score the better it is, the less pain the patients had) ...10
+1                                                                    Treatments     1
+2                                                                          <NA>     2
+3                                                                          <NA>     3
+4                                                                          <NA>     4
+5                                                                          <NA>     5
+6                                                                          <NA>    NA
+  Outcome: change in total symptom score in chronic prostatitis (NIH-CPSI)
+1                                                                  Placebo
+2                                                               α-Blockers
+3                                                              Antibiotics
+4                                                 α-Blockers + Antibiotics
+5                                                        Anti-inflammatory
+6                                                                     <NA>
+[1] "getting dataset:" "479629"          
+Studies: | Treatments: | Type: continuous | Effect: MD 
+ [1] "study year" "study"      "id"         "t"          "y"          "sd"         "n"         
+ [8] "...8"       "...9"       "...10"      "...11"      "...12"      "...13"      "...14"     
+[15] "...15"     
+  study year        study id t    y    sd  n ...8 ...9 ...10 ...11 ...12      ...13
+1       2001 Buljina 2001 25 6 70.0 19.04 50   NA   NA    NA    NA    NA       Harm
+2         NA         <NA> 25 7 32.4 14.78 50   NA   NA    NA    NA    NA Treatments
+3       2007 Fransen 2007 26 6 40.0 16.20 41   NA   NA    NA    NA    NA       <NA>
+4         NA         <NA> 26 7 27.3 18.70 55   NA   NA    NA    NA    NA       <NA>
+5       2008     Jan 2008 27 6 35.5 17.00 30   NA   NA    NA    NA    NA       <NA>
+6         NA         <NA> 27 7 24.0 17.50 34   NA   NA    NA    NA    NA       <NA>
+                                                                            ...14            ...15
+1 Outcome: pain intensity (0-100 scale; WMD between treatment and placebo groups)             <NA>
+2                                                                               1          placebo
+3                                                                               2 WHO 1 non opioid
+4                                                                               3   WHO II opioids
+5                                                                               4  WHO III opioids
+6                                                                               5               AC
+[1] "getting dataset:" "479647"          
+[1] "getting dataset:" "479650"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "study"               "id"                  "t"                   "n"                  
+ [5] "r"                   "...6"                "Harmful"             "Outcome:"           
+ [9] "incidence of Cancer" "...10"               "Comment"            
+              study id t   n  r ...6    Harmful Outcome: incidence of Cancer ...10 Comment
+1             HSCSG  1 1 219  4   NA       <NA>       NA                <NA>    NA      NA
+2             HSCSG  1 2 233  4   NA Treatments        1     placebo/Control    NA      NA
+3 Coope & Warrender  2 1 465 23   NA       <NA>        2            Diuretic    NA      NA
+4 Coope & Warrender  2 3 419 29   NA       <NA>        3        Beta-Blocker    NA      NA
+5             EWPHE  3 1 424 22   NA       <NA>        4                ACEI    NA      NA
+6             EWPHE  3 2 416 20   NA       <NA>        5                 CCB    NA      NA
+[1] "getting dataset:" "479652"          
+Studies: | Treatments: | Type: continuous | Effect: MD 
+ [1] "Study year"                                                                   
+ [2] "Study name"                                                                   
+ [3] "id"                                                                           
+ [4] "t"                                                                            
+ [5] "y"                                                                            
+ [6] "sd"                                                                           
+ [7] "n"                                                                            
+ [8] "...8"                                                                         
+ [9] "Harmful (the less the score the better it is, the less pain the patients had)"
+[10] "...10"                                                                        
+[11] "Outcome: duration of diarrhea"                                                
+  Study year         Study name id t    y   sd  n ...8
+1       1988      Lolekha (THA)  1 1 81.3 64.5 14   NA
+2       <NA>               <NA>  1 2 48.1 12.6 18   NA
+3       <NA>               <NA>  1 7 54.3 15.5 15   NA
+4       1990 Bhattacharya (IND)  2 1 29.3  4.5 12   NA
+5       <NA>               <NA>  2 2 19.2  4.4 13   NA
+6      1996a        Dutta (IND)  3 1 55.0 24.0 29   NA
+  Harmful (the less the score the better it is, the less pain the patients had) ...10
+1                                                                          <NA>    NA
+2                                                                    Treatments     1
+3                                                                          <NA>     2
+4                                                                          <NA>     3
+5                                                                          <NA>     4
+6                                                                          <NA>     5
+  Outcome: duration of diarrhea
+1                          <NA>
+2          Placebo/no treatment
+3                   Norfloxacin
+4                 Ciprofloxacin
+5                  Tetracycline
+6                   Doxycycline
+[1] "getting dataset:" "479657"          
+[1] "getting dataset:" "479661"          
+Studies: | Treatments: | Type: binary | Effect: OR 
+ [1] "year"               "study"              "id"                 "t"                 
+ [5] "n"                  "r"                  "...7"               "Harmful"           
+ [9] "Outcome:"           "incidence of stoke" "...11"              "Comment"           
+  year   study id t   n  r ...7    Harmful Outcome: incidence of stoke ...11 Comment
+1 1989 AFASK I  1 1 336 19   NA       <NA>       NA               <NA>    NA      NA
+2   NA AFASK I  1 2 335  9   NA Treatments        1            Control    NA      NA
+3   NA AFASK I  1 4 336 16   NA       <NA>        2           Warfarin    NA      NA
+4 1990  BAATAF  2 1 208 13   NA       <NA>        3         Aspirin HD    NA      NA
+5   NA  BAATAF  2 2 212  3   NA       <NA>        4         Aspirin LD    NA      NA
+6 1991    CAFA  3 1 191  9   NA       <NA>       NA               <NA>    NA      NA
+ [1] 473269 473552 474842 476033 476343 479531 479574 479585 479600 479603 479622 479629 479650
+[14] 479652 479661
+[1] "getting dataset:" "473269"          
+[1] "getting dataset:" "473552"          
+[1] "getting dataset:" "474842"          
+[1] "getting dataset:" "476033"          
+[1] "getting dataset:" "476343"          
+[1] "getting dataset:" "479531"          
+[1] "getting dataset:" "479574"          
+[1] "getting dataset:" "479585"          
+[1] "getting dataset:" "479600"          
+[1] "getting dataset:" "479603"          
+[1] "getting dataset:" "479622"          
+[1] "getting dataset:" "479629"          
+[1] "getting dataset:" "479650"          
+[1] "getting dataset:" "479652"          
+[1] "getting dataset:" "479661"          
+# A tibble: 15 × 4
+       id type       effect cols                                                                     
+    <int> <chr>      <chr>  <chr>                                                                    
+ 1 473269 binary     RR     year, study, id, t, r, n                                                 
+ 2 473552 binary     OR     year, study, id, t, r, n, ...7, ...8, Benefit, Outcome:, ACR70, ...12    
+ 3 474842 binary     OR     year, study, id, t, n, r, ...7, Harmful, Outcome:, rates of recurrent ve…
+ 4 476033 binary     OR     year, study, id, t, r, n, ...7, Harm, Outcome:, fractures, ...11         
+ 5 476343 survival   HR     Study year, Study name, id, t1, t2, yHR, effect, CILhr, CIHhr, CIL, CIH,…
+ 6 479531 binary     OR     year, study, id, t, r, n                                                 
+ 7 479574 binary     OR     year, study, id, t, r, n, ...7, Harm, Outcome:, target revascularization…
+ 8 479585 binary     OR     year, study, id, t, n, r, ...7, Harmful, Outcome:, Number of total adver…
+ 9 479600 binary     OR     year, study, id, t, n, r, ...7, Beneficial, Outcome:, ACR 50             
+10 479603 binary     OR     study year, study name, id, t, r, n, ...7, BENEFICIAL, Outcome: >50% red…
+11 479622 continuous MD     Study year, Study name, id, t, y, sd, n, ...8, Harmful (the less the sco…
+12 479629 continuous MD     study year, study, id, t, y, sd, n, ...8, ...9, ...10, ...11, ...12, ...…
+13 479650 binary     OR     study, id, t, n, r, ...6, Harmful, Outcome:, incidence of Cancer, ...10,…
+14 479652 continuous MD     Study year, Study name, id, t, y, sd, n, ...8, Harmful (the less the sco…
+15 479661 binary     OR     year, study, id, t, n, r, ...7, Harmful, Outcome:, incidence of stoke, .…
+[1] "getting dataset:" "473269"          
+[1] "getting dataset:" "473552"          
+[1] "getting dataset:" "474842"          
+[1] "getting dataset:" "476033"          
+[1] "getting dataset:" "476343"          
+[1] "getting dataset:" "479531"          
+[1] "getting dataset:" "479574"          
+[1] "getting dataset:" "479585"          
+[1] "getting dataset:" "479600"          
+[1] "getting dataset:" "479603"          
+[1] "getting dataset:" "479622"          
+[1] "getting dataset:" "479629"          
+[1] "getting dataset:" "479650"          
+[1] "getting dataset:" "479652"          
+[1] "getting dataset:" "479661"          
+[[1]]
+[1] "datasets/NMA_473269.xlsx"
+
+[[2]]
+[1] "datasets/NMA_473552.xlsx"
+
+[[3]]
+[1] "datasets/NMA_474842.xlsx"
+
+[[4]]
+[1] "datasets/NMA_476033.xlsx"
+
+[[5]]
+[1] "datasets/NMA_476343.xlsx"
+
+[[6]]
+[1] "datasets/NMA_479531.xlsx"
+
+[[7]]
+[1] "datasets/NMA_479574.xlsx"
+
+[[8]]
+[1] "datasets/NMA_479585.xlsx"
+
+[[9]]
+[1] "datasets/NMA_479600.xlsx"
+
+[[10]]
+[1] "datasets/NMA_479603.xlsx"
+
+[[11]]
+[1] "datasets/NMA_479622.xlsx"
+
+[[12]]
+[1] "datasets/NMA_479629.xlsx"
+
+[[13]]
+[1] "datasets/NMA_479650.xlsx"
+
+[[14]]
+[1] "datasets/NMA_479652.xlsx"
+
+[[15]]
+[1] "datasets/NMA_479661.xlsx"
+
